@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/TooeleTechSoftDev/PizzaTime-Server/issues"
   },
-  "homepage": "https://github.com/TooeleTechSoftDev/PizzaTime-Server#readme"
+  "homepage": "https://github.com/TooeleTechSoftDev/PizzaTime-Server#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
 }
