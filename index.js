@@ -3,7 +3,8 @@ const app = express()
 
 app.use('/public',express.static('public'))
 
-app.get('/', (req, res) => res.send('<html><body><h1>This is bigger</h1></body></html>'))
+app.get('/', (req, res) => res.send('<html><body><h2>This is smaller</h2></body></html>'))
+app.get('/test', (req, res) => res.send('<html><body><h1>This is bigger</h1></body></html>'))
 
 let jsonObj = { "name": "supreme",
                 "size": 12,
