@@ -8,6 +8,7 @@ const app = express()
 ////
 
 app.use('/public',express.static('public'))
+app.use(express.json('*/*'))
 
 app.get('/', (req, res) => res.send('<html><body><h2>This is smaller</h2></body></html>'))
 app.get('/test', (req, res) => res.send('<html><body><h1>This is bigger</h1></body></html>'))
@@ -33,8 +34,23 @@ app.listen(3000,
 
 
 /////-----      customer
+
+app.post('/account/newuser', (req, res) => {
+    //parse req for account data
+    let accountData = req.body
+    // ...
+    registerNewUser(accountData)
+    // Respond telling them that it worked...
+    let respObj = { "resultCode": 200, "result": "OK"}
+    res.send(JSON.stringify(respObj))
+})
+
+
+function registerNewUser(accountData) {
+    console.log("Got user data", accountData)
+    // submit data to mongo....
+}
 /*
-registerNewUser(accountData)
 
 getUserInfo(user)
 
