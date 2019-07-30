@@ -59,7 +59,8 @@ function respondOK(res,obj) {
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
-    registerNewUser(accountData,(respObj) => respondOK(res,respObj))
+    if (!accountData.firstName) { console.log("Missing first name")}
+    registerNewUser(accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
     // IOW, put some error-checking/handling code here
 })
@@ -79,7 +80,25 @@ app.get('/account/detail/:accountNum', (req, res) => {
 })
 
 function retrieveUser(accountNum,cb) {
-    collection.Accounts.findOne({ accountNum: parseInt(accountNum)}.then((err, item) => cb(item))
+    collection.Accounts.findOne({ accountNum: parseInt(accountNum)}).then(cb)
+}
+
+// Preliminary search function
+
+app.get('/account/search/:searchParam', (req, res) => {
+    let searchParam = req.params.searchParam
+    //console.log("Search param: '" + searchParam + "'")
+    searchUser(searchParam,(respObj) => respondOK(res,respObj))
+})
+
+function searchUser(searchParam,cb) {
+    let pattern = searchParam
+    collection.Accounts.find({
+        $or: [
+            { firstName: { $regex: pattern, $options: 'i'}},
+            { lastName: { $regex: pattern, $options: 'i'}},   
+            ]
+    }, (err, cursor) => { console.log("Got from db: ", cursor); cursor.toArray((err, items) => cb(items)) })
 }
 
 
@@ -105,7 +124,7 @@ app.get('/product/detail/:productNum', (req, res) => {
 })
 
 function retrieveItem(productNum,cb) {
-    collection.Products.findOne({ productNum: parseInt(productNum)}.then((err, item) => cb(item))
+    collection.Products.findOne({ productNum: parseInt(productNum)}).then(cb)
 }
 
 
@@ -131,5 +150,5 @@ app.get('/order/detail/:orderNum', (req, res) => {
 })
 
 function retrieveOrder(orderNum,cb) {
-    collection.Orders.findOne({ orderNum: parseInt(orderNum)}.then((err, item) => cb(item))
+    collection.Orders.findOne({ orderNum: parseInt(orderNum)}).then(cb)
 }
