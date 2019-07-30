@@ -18,8 +18,9 @@ var collection = {}
 // Use Assert for error checking
 const assert = require('assert')
 
+console.log("Connecting to Mongo")
 // Connect to the database; once connected, we'll start our HTTP (express) listener
-mongoClient.connect(function(err) {
+mongoClient.connect(err => {
     assert.equal(null, err)
     console.log("Connected to Mongo")
     // Get a handle to our database
@@ -27,11 +28,15 @@ mongoClient.connect(function(err) {
 
     // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
-    collList.some(element => {
+    collList.some(element => 
         // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
-    })
+        // If we didn't do this, we'd possibly have to type the following
+        // line of code all the time....
+        // mongoClient.db('PizzaTime').collection('Accounts').insertOne(stuff)
+    )
 
+    console.log("Server starting on 8080")
     // Start Express
     app.listen("8080", () => {
         console.log("Server started on 8080")
@@ -46,12 +51,18 @@ mongoClient.connect(function(err) {
 
 // Helper functions used by the API event handlers below
 function respondOK(res,obj) {
-    obj = { ...obj, "resultCode" : 200, "result": "OK" }
+    obj = { returned: obj, resultCode : 200, result: "OK" }
     res.send(JSON.stringify(obj))
 }
 
-function retrieveOne(collection,key,value,cb) {
-    collection.findOne({[key]: value}).then(cb)
+function retrieveOne(coll,key,value,cb) {
+    coll.findOne({[key]: value}).then(cb)
+}
+
+function registerObject(coll,obj,cb) {
+    coll.insertOne(obj).then((result) => {
+        cb({ops: result.ops, insertedId: result.insertedId, insertedCount: result.insertedCount})
+    })
 }
 
 // ToDo: refactor all the insertOne functions here
@@ -63,19 +74,10 @@ app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
     if (!accountData.firstName) { console.log("Missing first name")}
-    registerNewUser(accountData,(returnedData) => respondOK(res,returnedData))
+    registerObject(collection.Accounts,accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
     // IOW, put some error-checking/handling code here
 })
-
-function registerNewUser(accountData,cb) {
-    collection.Accounts.insertOne(accountData).then( 
-        (myResult) => 
-            cb({ ops: myResult.ops, 
-                 insertedCount: myResult.insertedCount, 
-                 insertedId: myResult.insertedId})
-    )
-}
 
 app.get('/account/detail/:accountNum', (req, res) => {
     let num = parseInt(req.params.accountNum)
@@ -104,17 +106,8 @@ function searchUser(searchParam,cb) {
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
     // Todo: sanitize the data and do security checks here.
-    registerNewItem(productData,(respObj) => respondOK(res,respObj))
+    registerObject(collection.Products,productData,(respObj) => respondOK(res,respObj))
 })
-
-function registerNewItem(productData,cb) {
-    collection.Products.insertOne(productData).then( 
-        (myResult) => 
-            cb({ ops: myResult.ops, 
-                 insertedCount: myResult.insertedCount, 
-                 insertedId: myResult.insertedId})
-    )
-}
 
 app.get('/product/detail/:productNum', (req, res) => {
     let num = parseInt(req.params.productNum)
@@ -125,17 +118,8 @@ app.get('/product/detail/:productNum', (req, res) => {
 app.post('/order/newitem', (req, res) => {
     let orderData = req.body
     // Todo: sanitize the data and do security checks here.
-    registerNewOrder(orderData,(obj) => respondOK(res,obj))
+    registerObject(collection.Orders,orderData,(obj) => respondOK(res,obj))
 })
-
-function registerNewOrder(orderData,cb) {
-    collection.Orders.insertOne(orderData).then( 
-        (myResult) => 
-            cb({ ops: myResult.ops, 
-                 insertedCount: myResult.insertedCount, 
-                 insertedId: myResult.insertedId})
-    )
-}
 
 app.get('/order/detail/:orderNum', (req, res) => {
     let num = parseInt(req.params.orderNum)
