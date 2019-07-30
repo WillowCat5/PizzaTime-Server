@@ -1,30 +1,38 @@
+// Set up Express
 const express = require('express')
 const app = express()
+// Tell Express that we support JSON parsing
+app.use(express.json('*/*'))
+// More Express setup is below the main runloop
 
+// Set up MongoDB and associated variables
 const db = require("mongodb")
 const dbLink = "mongodb://localhost:27017"
 const MongoClient = db.MongoClient
-
-const assert = require('assert')
 
 const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
 var mongoDB
 var collection = {}
 
+// Use Assert for error checking
+const assert = require('assert')
+
+// Connect to the database; once connected, we'll start our HTTP (express) listener
 mongoClient.connect(function(err) {
     assert.equal(null, err)
     console.log("Connected to Mongo")
     // Get a handle to our database
     mongoDB = mongoClient.db(mongoDBName)
 
-    // Get a handle to all of the collections
+    // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
     collList.some(element => {
-        // Store the handles in this object, making it easier to access them
+        // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
     })
 
+    // Start Express
     app.listen("8080", () => {
         console.log("Server started on 8080")
     })
@@ -32,11 +40,11 @@ mongoClient.connect(function(err) {
 })
 
 ///////////////////////////////////////////////////////////////
+// Items below this comment are Express API calls (event registrations)
+// and the functions used by those API calls
+///////////////////////////////////////////////////////////////
 
-// Express initialization
-app.use(express.json('*/*'))
-
-// Helper functions used throughout much of the code below
+// Helper functions used by the API event handlers below
 function respondOK(res,obj) {
     obj = { ...obj, "resultCode" : 200, "result": "OK" }
     res.send(JSON.stringify(obj))
