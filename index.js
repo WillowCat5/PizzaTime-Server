@@ -50,8 +50,11 @@ function respondOK(res,obj) {
     res.send(JSON.stringify(obj))
 }
 
-// ToDo: refactor all the insertOne functions here
+function retrieveOne(collection,key,value,cb) {
+    collection.findOne({[key]: value}).then(cb)
+}
 
+// ToDo: refactor all the insertOne functions here
 
 ////////////////// API and DB calls ///////////////////////////
 
@@ -75,20 +78,16 @@ function registerNewUser(accountData,cb) {
 }
 
 app.get('/account/detail/:accountNum', (req, res) => {
-    let accountNum = req.params.accountNum
-    retrieveUser(accountNum,(respObj) => respondOK(res,respObj))
+    let num = parseInt(req.params.accountNum)
+    retrieveOne(collection.Accounts,"accountNum", num, (obj) => respondOK(res,obj))
 })
-
-function retrieveUser(accountNum,cb) {
-    collection.Accounts.findOne({ accountNum: parseInt(accountNum)}).then(cb)
-}
 
 // Preliminary search function
 
 app.get('/account/search/:searchParam', (req, res) => {
     let searchParam = req.params.searchParam
     //console.log("Search param: '" + searchParam + "'")
-    searchUser(searchParam,(respObj) => respondOK(res,respObj))
+    searchUser(searchParam,  (obj) => respondOK(res,obj)  )
 })
 
 function searchUser(searchParam,cb) {
@@ -98,9 +97,8 @@ function searchUser(searchParam,cb) {
             { firstName: { $regex: pattern, $options: 'i'}},
             { lastName: { $regex: pattern, $options: 'i'}},   
             ]
-    }, (err, cursor) => { console.log("Got from db: ", cursor); cursor.toArray((err, items) => cb(items)) })
+    }, (err, cursor) => cursor.toArray((err, items) => cb(items)) )
 }
-
 
 /////-----      products
 app.post('/product/newitem', (req, res) => {
@@ -119,20 +117,15 @@ function registerNewItem(productData,cb) {
 }
 
 app.get('/product/detail/:productNum', (req, res) => {
-    let productNum = req.params.productNum
-    retrieveItem(productNum,(respObj) => respondOK(res,respObj))
+    let num = parseInt(req.params.productNum)
+    retrieveOne(collection.Products, "productNum",num,(obj) => respondOK(res,obj))
 })
-
-function retrieveItem(productNum,cb) {
-    collection.Products.findOne({ productNum: parseInt(productNum)}).then(cb)
-}
-
 
 /////-----      orders
 app.post('/order/newitem', (req, res) => {
     let orderData = req.body
     // Todo: sanitize the data and do security checks here.
-    registerNewOrder(orderData,(respObj) => respondOK(res,respObj))
+    registerNewOrder(orderData,(obj) => respondOK(res,obj))
 })
 
 function registerNewOrder(orderData,cb) {
@@ -145,10 +138,6 @@ function registerNewOrder(orderData,cb) {
 }
 
 app.get('/order/detail/:orderNum', (req, res) => {
-    let orderNum = req.params.orderNum
-    retrieveOrder(orderNum,(respObj) => respondOK(res,respObj))
+    let num = parseInt(req.params.orderNum)
+    retrieveOne(collection.Orders,"orderNum", num,(obj) => respondOK(res,obj))
 })
-
-function retrieveOrder(orderNum,cb) {
-    collection.Orders.findOne({ orderNum: parseInt(orderNum)}).then(cb)
-}
