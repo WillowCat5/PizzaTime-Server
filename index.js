@@ -92,8 +92,7 @@ app.get('/account/search/:searchParam', (req, res) => {
     searchUser(searchParam,  (obj) => respondOK(res,obj)  )
 })
 
-function searchUser(searchParam,cb) {
-    let pattern = searchParam
+function searchUser(pattern,cb) {
     collection.Accounts.find({
         $or: [
             { firstName: { $regex: pattern, $options: 'i'}},
