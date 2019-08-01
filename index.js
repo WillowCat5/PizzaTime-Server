@@ -28,13 +28,13 @@ mongoClient.connect(err => {
 
     // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
-    collList.some(element => 
+    collList.some( function(element) {
         // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
         // If we didn't do this, we'd possibly have to type the following
         // line of code all the time....
         // mongoClient.db('PizzaTime').collection('Accounts').insertOne(stuff)
-    )
+    })
 
     console.log("Server starting on 8080")
     // Start Express
@@ -56,15 +56,20 @@ function respondOK(res,obj) {
 }
 
 function retrieveOne(coll,key,value,cb) {
-    coll.findOne({[key]: value}).then(cb)
+    collection[coll].findOne({[key]: value}).then(cb)
 }
 
 function registerObject(coll,obj,cb) {
-    coll.insertOne(obj).then((result) => {
+    collection[coll].insertOne(obj).then((result) => {
         cb({ops: result.ops, insertedId: result.insertedId, insertedCount: result.insertedCount})
     })
 }
 
+function updateObject(coll,key,value,obj,cb) {
+    collection[coll].updateOne({ [key]: value }, { $set: obj }).then((result) => {
+        cb({ origObj: obj, modifiedCount: result.modifiedCount})
+    })
+}
 // ToDo: refactor all the insertOne functions here
 
 ////////////////// API and DB calls ///////////////////////////
@@ -74,14 +79,21 @@ app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
     if (!accountData.firstName) { console.log("Missing first name")}
-    registerObject(collection.Accounts,accountData,(returnedData) => respondOK(res,returnedData))
+    registerObject("Accounts",accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
     // IOW, put some error-checking/handling code here
 })
 
+app.post('/account/change/:accountNum', (req, res) => {
+    let accountData = req.body
+    let num = parseInt(req.params.accountNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Accounts","accountNum",num,accountData,(obj) => respondOK(res,obj))
+})
+
 app.get('/account/detail/:accountNum', (req, res) => {
     let num = parseInt(req.params.accountNum)
-    retrieveOne(collection.Accounts,"accountNum", num, (obj) => respondOK(res,obj))
+    retrieveOne("Accounts","accountNum", num, (obj) => respondOK(res,obj))
 })
 
 // Preliminary search function
@@ -105,22 +117,56 @@ function searchUser(pattern,cb) {
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
     // Todo: sanitize the data and do security checks here.
-    registerObject(collection.Products,productData,(respObj) => respondOK(res,respObj))
+    registerObject("Products",productData,(obj) => respondOK(res,obj))
+})
+
+app.post('/product/change/:productNum', (req, res) => {
+    let productData = req.body
+    let num = parseInt(req.params.productNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Products","productNum",num,productData,(obj) => respondOK(res,obj))
 })
 
 app.get('/product/detail/:productNum', (req, res) => {
     let num = parseInt(req.params.productNum)
-    retrieveOne(collection.Products, "productNum",num,(obj) => respondOK(res,obj))
+    retrieveOne("Products", "productNum",num,(obj) => respondOK(res,obj))
 })
 
 /////-----      orders
 app.post('/order/newitem', (req, res) => {
     let orderData = req.body
     // Todo: sanitize the data and do security checks here.
-    registerObject(collection.Orders,orderData,(obj) => respondOK(res,obj))
+    registerObject("Orders",orderData,(obj) => respondOK(res,obj))
+})
+
+app.post('/order/change/:orderNum', (req, res) => {
+    let orderData = req.body
+    let num = parseInt(req.params.orderNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Orders","orderNum",num,orderData,(obj) => respondOK(res,obj))
 })
 
 app.get('/order/detail/:orderNum', (req, res) => {
     let num = parseInt(req.params.orderNum)
-    retrieveOne(collection.Orders,"orderNum", num,(obj) => respondOK(res,obj))
+    retrieveOne("Orders","orderNum",num,(obj) => respondOK(res,obj))
+})
+
+/////-----      pages
+
+app.post('/pages/newitem', (req, res) => {
+    let pageData = req.body
+    // Todo: sanitize the data and do security checks here.
+    registerObject("Pages",pageData,(obj) => respondOK(res,obj))
+})
+
+app.post('/pages/change/:pageNum', (req, res) => {
+    let pageData = req.body
+    let num = parseInt(req.params.pageNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Pages","pageNum",num,pageData,(obj) => respondOK(res,obj))
+})
+
+app.get('/pages/detail/:pageNum', (req, res) => {
+    let num = parseInt(req.params.pageNum)
+    retrieveOne("Pages", "pageNum",num,(obj) => respondOK(res,obj))
 })
