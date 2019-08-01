@@ -151,3 +151,23 @@ app.get('/order/detail/:orderNum', (req, res) => {
     let num = parseInt(req.params.orderNum)
     retrieveOne("Orders","orderNum",num,(obj) => respondOK(res,obj))
 })
+
+/////-----      pages
+
+app.post('/pages/newitem', (req, res) => {
+    let pageData = req.body
+    // Todo: sanitize the data and do security checks here.
+    registerObject("Pages",pageData,(obj) => respondOK(res,obj))
+})
+
+app.post('/pages/change/:pageNum', (req, res) => {
+    let pageData = req.body
+    let num = parseInt(req.params.pageNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Pages","pageNum",num,pageData,(obj) => respondOK(res,obj))
+})
+
+app.get('/pages/detail/:pageNum', (req, res) => {
+    let num = parseInt(req.params.pageNum)
+    retrieveOne("Pages", "pageNum",num,(obj) => respondOK(res,obj))
+})
