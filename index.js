@@ -84,6 +84,13 @@ app.post('/account/newuser', (req, res) => {
     // IOW, put some error-checking/handling code here
 })
 
+app.post('/account/change/:accountNum', (req, res) => {
+    let accountData = req.body
+    let num = parseInt(req.params.accountNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Accounts","accountNum",num,accountData,(obj) => respondOK(res,obj))
+})
+
 app.get('/account/detail/:accountNum', (req, res) => {
     let num = parseInt(req.params.accountNum)
     retrieveOne("Accounts","accountNum", num, (obj) => respondOK(res,obj))
