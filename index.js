@@ -121,6 +121,13 @@ app.post('/product/newitem', (req, res) => {
     registerObject("Products",productData,(obj) => respondOK(res,obj))
 })
 
+app.post('/product/change/:productNum', (req, res) => {
+    let productData = req.body
+    let num = parseInt(req.params.productNum)
+    // Todo: sanitize the data and do security checks here.
+    updateObject("Products","productNum",num,productData,(obj) => respondOK(res,obj))
+})
+
 app.get('/product/detail/:productNum', (req, res) => {
     let num = parseInt(req.params.productNum)
     retrieveOne("Products", "productNum",num,(obj) => respondOK(res,obj))
