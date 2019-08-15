@@ -3,7 +3,15 @@ const express = require('express')
 const app = express()
 // Tell Express that we support JSON parsing
 app.use(express.json('*/*'))
-// More Express setup is below the main runloop
+// Turn of CORS rules
+app.use((req, res, next) => {
+    res.append('Access-Control-Allow-Origin', ['*']);
+    res.append('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.append('Access-Control-Allow-Headers', 'Content-Type');
+    next();
+});
+
+// Express routes are below the main runloop
 
 // Set up MongoDB and associated variables
 const db = require("mongodb")
@@ -36,10 +44,10 @@ mongoClient.connect(err => {
         // mongoClient.db('PizzaTime').collection('Accounts').insertOne(stuff)
     })
 
-    console.log("Server starting on 8080")
+    console.log("Server starting on 8088")
     // Start Express
-    app.listen("8080", () => {
-        console.log("Server started on 8080")
+    app.listen("8088", () => {
+        console.log("Server started on 8088")
     })
 
 })
@@ -60,6 +68,7 @@ function retrieveOne(coll,key,value,cb) {
 }
 
 function registerObject(coll,obj,cb) {
+    console.log("Inserting into " + coll + ": ", obj);
     collection[coll].insertOne(obj).then((result) => {
         cb({ops: result.ops, insertedId: result.insertedId, insertedCount: result.insertedCount})
     })
@@ -156,6 +165,7 @@ app.get('/order/detail/:orderNum', (req, res) => {
 
 app.post('/pages/newitem', (req, res) => {
     let pageData = req.body
+    //console.log(req)
     // Todo: sanitize the data and do security checks here.
     registerObject("Pages",pageData,(obj) => respondOK(res,obj))
 })
