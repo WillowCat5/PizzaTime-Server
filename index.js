@@ -3,7 +3,7 @@ const express = require('express')
 const app = express()
 // Tell Express that we support JSON parsing
 app.use(express.json('*/*'))
-// Turn of CORS rules
+// Turn off CORS rules
 app.use((req, res, next) => {
     res.append('Access-Control-Allow-Origin', ['*']);
     res.append('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
@@ -36,7 +36,7 @@ mongoClient.connect(err => {
 
     // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
-    collList.some( function(element) {
+    collList.forEach( element => {
         // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
         // If we didn't do this, we'd possibly have to type the following
