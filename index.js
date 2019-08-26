@@ -3,8 +3,6 @@ const express = require('express')
 const app = express()
 // Tell Express that we support JSON parsing
 app.use(express.json('*/*'))
-const fs = require('fs')  // for json import
-
 // Turn off CORS rules
 app.use((req, res, next) => {
     res.append('Access-Control-Allow-Origin', ['*']);
@@ -12,6 +10,7 @@ app.use((req, res, next) => {
     res.append('Access-Control-Allow-Headers', 'Content-Type');
     next();
 });
+const fs = require('fs')  // for json import
 
 // Express routes are below the main runloop
 
@@ -25,7 +24,6 @@ const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
 let custAccountsSchema
-
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -48,7 +46,7 @@ mongoClient.connect(err => {
 
     // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
-    collList.forEach( element => {
+    collList.some( function(element) {
         // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
         // If we didn't do this, we'd possibly have to type the following
@@ -114,6 +112,7 @@ function updateObject(coll,key,value,obj,cb) {
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
+    if (!accountData.firstName) { console.log("Missing first name")}
     // *** do we stop with first violation, or check them all?
 
     // check if main fields exist
@@ -176,7 +175,9 @@ app.get('/account/search/:searchParam', (req, res) => {
     searchUser(searchParam,  (obj) => respondOK(res,obj)  )
 })
 
-function searchUser(pattern,cb) {
+
+function searchUser(searchParam,cb) {
+    let pattern = searchParam
     collection.Accounts.find({
         $or: [
             { firstName: { $regex: pattern, $options: 'i'}},
@@ -188,6 +189,17 @@ function searchUser(pattern,cb) {
 /////-----      products
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
+    let newitemNum = Math.floor(Math.random() * 10000) + 10000;
+    productData.productNum = newitemNum
+
+    if (!productData.productName) {
+        respondError(res,"Invalid Product Name")
+    }
+
+    if (!productData.productSize) {
+        respondError(res,"Product Size Undefined")
+    }
+
     // Todo: sanitize the data and do security checks here.
     registerObject("Products",productData,(obj) => respondOK(res,obj))
 })
