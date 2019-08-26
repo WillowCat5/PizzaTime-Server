@@ -55,6 +55,11 @@ function respondOK(res,obj) {
     res.send(JSON.stringify(obj))
 }
 
+function respondError(res,obj) {
+    obj = { returned: obj, resultCode : 500, result: "NotOk" }
+    res.send(JSON.stringify(obj))
+}
+
 function retrieveOne(coll,key,value,cb) {
     collection[coll].findOne({[key]: value}).then(cb)
 }
@@ -117,6 +122,17 @@ function searchUser(searchParam,cb) {
 /////-----      products
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
+    let newitemNum = Math.floor(Math.random() * 10000) + 10000;
+    productData.productNum = newitemNum
+
+    if (!productData.productName) {
+        respondError(res,"Invalid Product Name")
+    }
+
+    if (!productData.productSize) {
+        respondError(res,"Product Size Undefined")
+    }
+
     // Todo: sanitize the data and do security checks here.
     registerObject("Products",productData,(obj) => respondOK(res,obj))
 })
