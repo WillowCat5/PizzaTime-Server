@@ -1,9 +1,9 @@
-const fs = require('fs')  // for json import
 // Set up Express
 const express = require('express')
 const app = express()
 // Tell Express that we support JSON parsing
 app.use(express.json('*/*'))
+const fs = require('fs')  // for json import
 
 // Turn off CORS rules
 app.use((req, res, next) => {
