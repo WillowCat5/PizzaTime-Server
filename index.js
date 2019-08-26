@@ -3,13 +3,14 @@ const express = require('express')
 const app = express()
 // Tell Express that we support JSON parsing
 app.use(express.json('*/*'))
-// Turn of CORS rules
+// Turn off CORS rules
 app.use((req, res, next) => {
     res.append('Access-Control-Allow-Origin', ['*']);
     res.append('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
     res.append('Access-Control-Allow-Headers', 'Content-Type');
     next();
 });
+const fs = require('fs')  // for json import
 
 // Express routes are below the main runloop
 
@@ -20,11 +21,20 @@ const MongoClient = db.MongoClient
 
 const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
-var mongoDB
-var collection = {}
+let mongoDB
+let collection = {}
+let custAccountsSchema
 
 // Use Assert for error checking
 const assert = require('assert')
+
+// async json import, see here: https://goenning.net/2016/04/14/stop-reading-json-files-with-require/
+function readJson(path, cb) {
+    fs.readFile(require.resolve(path), (err, data) => {
+        if (err)  cb(err)
+        else  cb(null, JSON.parse(data))
+    })
+}
 
 console.log("Connecting to Mongo")
 // Connect to the database; once connected, we'll start our HTTP (express) listener
@@ -42,6 +52,16 @@ mongoClient.connect(err => {
         // If we didn't do this, we'd possibly have to type the following
         // line of code all the time....
         // mongoClient.db('PizzaTime').collection('Accounts').insertOne(stuff)
+    })
+
+    // import schema(s)
+    readJson('./custAccountsSchema.json', (err, obj) => {
+        if (err) {
+            console.log("Unable to import file with error: ", err)
+            exit  // quit server, which may already have started before cb called here
+        }
+        custAccountsSchema = obj;
+        //console.log(custAccountsSchema)
     })
 
     console.log("Server starting on 8088")
@@ -93,6 +113,43 @@ app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
     if (!accountData.firstName) { console.log("Missing first name")}
+    // *** do we stop with first violation, or check them all?
+
+    // check if main fields exist
+    if (accountData.accountId) {
+        respondError(res, 'accountId should NOT exist on received data')
+        return  // be sure to return after sending a response, or we get an error about reusing res
+    }
+    accountData.accountId = 123;  // *** placeholder.  need to generate a new *unique* one
+    Object.keys(custAccountsSchema).forEach(key => {
+        console.log(key, " | ", accountData[key])  //  *** just for checking
+        if(!accountData[key])  {
+            respondError(res, `${key} doesn't exist`)
+            return
+        }
+    })
+    if (!accountData.contacts.contacts1) {  // *** magic way to not hardcode "contacts1"?
+        respondError(res, 'no contact included')
+        return
+    }
+    if (!accountData.addresses.address1) {
+        respondError(res, 'no address included')
+        return
+    }
+    if (!accountData.paymentMethods.payment1) {
+        respondError(res, 'no payment methods included')
+        return
+    }
+
+    // check if unexpected keys are present, and strip them off?  (may cause issues if schema changes later)
+
+    // check if any fields are super long or contain non-printing characters
+
+    // check if certain fields make sense (like e-mail pattern)
+
+
+
+
     registerObject("Accounts",accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
     // IOW, put some error-checking/handling code here
@@ -117,6 +174,7 @@ app.get('/account/search/:searchParam', (req, res) => {
     //console.log("Search param: '" + searchParam + "'")
     searchUser(searchParam,  (obj) => respondOK(res,obj)  )
 })
+
 
 function searchUser(searchParam,cb) {
     let pattern = searchParam
