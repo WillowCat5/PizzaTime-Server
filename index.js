@@ -24,6 +24,7 @@ const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
 let custAccountsSchema
+const MAX_KEY_SIZE = 100
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -46,7 +47,7 @@ mongoClient.connect(err => {
 
     // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
-    collList.some( function(element) {
+    collList.some( function(element) {  // *** forEach might be more efficient as it doesn't return anything
         // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
         // If we didn't do this, we'd possibly have to type the following
@@ -59,9 +60,9 @@ mongoClient.connect(err => {
         if (err) {
             console.log("Unable to import file with error: ", err)
             exit  // quit server, which may already have started before cb called here
+            // *** is there a "better" way to quit?  need to close db and express first?
         }
         custAccountsSchema = obj;
-        //console.log(custAccountsSchema)
     })
 
     console.log("Server starting on 8088")
@@ -104,6 +105,29 @@ function updateObject(coll,key,value,obj,cb) {
         cb({ origObj: obj, modifiedCount: result.modifiedCount})
     })
 }
+
+function checkAccountData(accountData) {  // returns an error (string), or null if no issue
+    if (!custAccountsSchema)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in
+    if (accountData.accountId)  return 'accountId should NOT exist on received data'
+    accountData.accountId = 123;  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
+    Object.keys(custAccountsSchema).forEach(key => {  // generically compare the top level elements in schema to input data
+        console.log(key, " | ", accountData[key])  //  *** just for checking
+        if (!accountData[key])  return `${key} doesn't exist`
+        if (accountData[key].toString.length > MAX_KEY_SIZE)  return `${key} is too long.  (Maximum size is ${MAX_KEY_SIZE})`
+    })
+    if (!accountData.contacts.contacts1)  return 'no contact included'
+    // if (!accountData.addresses.address1)  return 'no address included'  // *** address may be optional, especially for pickup-only orders
+    if (!accountData.paymentMethods.payment1)  return 'no payment method included'
+    
+
+    // check if unexpected keys are present, and strip them off?  (may cause issues if schema changes later)
+
+    // check if any fields are super long or contain non-printing characters
+
+    // check if certain fields make sense (like e-mail pattern)
+
+    return null;  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+}
 // ToDo: refactor all the insertOne functions here
 
 ////////////////// API and DB calls ///////////////////////////
@@ -112,47 +136,20 @@ function updateObject(coll,key,value,obj,cb) {
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
-    if (!accountData.firstName) { console.log("Missing first name")}
-    // *** do we stop with first violation, or check them all?
+
+    //if (!accountData.firstName) { console.log("Missing first name")}  // this is now handled in checkCustomerData()
 
     // check if main fields exist
-    if (accountData.accountId) {
-        respondError(res, 'accountId should NOT exist on received data')
-        return  // be sure to return after sending a response, or we get an error about reusing res
+    err = checkCustomerData(accountData)
+    if (err) {
+        respondError(res, err)
+        return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
     }
-    accountData.accountId = 123;  // *** placeholder.  need to generate a new *unique* one
-    Object.keys(custAccountsSchema).forEach(key => {
-        console.log(key, " | ", accountData[key])  //  *** just for checking
-        if(!accountData[key])  {
-            respondError(res, `${key} doesn't exist`)
-            return
-        }
-    })
-    if (!accountData.contacts.contacts1) {  // *** magic way to not hardcode "contacts1"?
-        respondError(res, 'no contact included')
-        return
-    }
-    if (!accountData.addresses.address1) {
-        respondError(res, 'no address included')
-        return
-    }
-    if (!accountData.paymentMethods.payment1) {
-        respondError(res, 'no payment methods included')
-        return
-    }
-
-    // check if unexpected keys are present, and strip them off?  (may cause issues if schema changes later)
-
-    // check if any fields are super long or contain non-printing characters
-
-    // check if certain fields make sense (like e-mail pattern)
-
-
 
 
     registerObject("Accounts",accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
-    // IOW, put some error-checking/handling code here
+    // IOW, put some error-checking/handling code here, *** for if the database rejected the call
 })
 
 app.post('/account/change/:accountNum', (req, res) => {
