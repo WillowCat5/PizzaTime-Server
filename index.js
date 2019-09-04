@@ -10,7 +10,10 @@ app.use((req, res, next) => {
     res.append('Access-Control-Allow-Headers', 'Content-Type');
     next();
 });
-const fs = require('fs')  // for json import
+const fs = require('fs')  // for JSON import
+//const valid = require('validator')  // tried this library but decided to go for something more sophisticated
+const Ajv = require('ajv')  // Another JSON (Schema) Validator, https://www.npmjs.com/package/ajv
+let ajv = new Ajv( { allErrors: true } )  // ***** TODO: remove allErrors for production release, which fixes DoS issue
 
 // Express routes are below the main runloop
 
@@ -23,8 +26,7 @@ const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
-let custAccountsSchema
-const MAX_KEY_SIZE = 100
+let custAccountsValidator
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -56,13 +58,13 @@ mongoClient.connect(err => {
     })
 
     // import schema(s)
-    readJson('./custAccountsSchema.json', (err, obj) => {
+    readJson('./custAccountsSchema2.json', (err, obj) => {
         if (err) {
             console.log("Unable to import file with error: ", err)
             exit  // quit server, which may already have started before cb called here
             // *** is there a "better" way to quit?  need to close db and express first?
         }
-        custAccountsSchema = obj;
+        custAccountsValidator = ajv.compile(obj);
     })
 
     console.log("Server starting on 8088")
@@ -107,26 +109,33 @@ function updateObject(coll,key,value,obj,cb) {
 }
 
 function checkAccountData(accountData) {  // returns an error (string), or null if no issue
-    if (!custAccountsSchema)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in
+    if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
+    if (typeof accountData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
     if (accountData.accountId)  return 'accountId should NOT exist on received data'
-    accountData.accountId = 123;  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
-    Object.keys(custAccountsSchema).forEach(key => {  // generically compare the top level elements in schema to input data
-        console.log(key, " | ", accountData[key])  //  *** just for checking
-        if (!accountData[key])  return `${key} doesn't exist`
-        if (accountData[key].toString.length > MAX_KEY_SIZE)  return `${key} is too long.  (Maximum size is ${MAX_KEY_SIZE})`
-    })
-    if (!accountData.contacts.contacts1)  return 'no contact included'
-    // if (!accountData.addresses.address1)  return 'no address included'  // *** address may be optional, especially for pickup-only orders
-    if (!accountData.paymentMethods.payment1)  return 'no payment method included'
+    accountData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
+
+    if (!custAccountsValidator(accountData)) {
+        console.log("=====")
+        console.log(custAccountsValidator.errors)
+        return custAccountsValidator.errors
+    }
+
+    // Object.keys(custAccountsSchema).forEach(key => {  // generically compare the top level elements in schema to input data
+    //     console.log(key, " | ", accountData[key], ' | ', typeof accountData[key], ' | ', accountData[key].toString())  //  *** just for checking
+    //     if (!accountData[key])  return `${key} doesn't exist in input data`
+    //     if (accountData[key].toString.length > MAX_KEY_SIZE)  return `${key} is too long.  Maximum size is ${MAX_KEY_SIZE}`
+    // })
+    // if (!accountData.contacts.contacts1)  return 'no contact included'
+    // // if (!accountData.addresses.address1)  return 'no address included'  // *** address may be optional, especially for pickup-only orders
+    // if (!accountData.paymentMethods.payment1)  return 'no payment method included'
     
+    // (done?) check if any fields are super long
+    
+    // *** check if any fields contain non-printing characters, using regex/pattern?  maybe combined with next thought:
 
-    // check if unexpected keys are present, and strip them off?  (may cause issues if schema changes later)
+    // *** check if certain fields make sense (like e-mail pattern)
 
-    // check if any fields are super long or contain non-printing characters
-
-    // check if certain fields make sense (like e-mail pattern)
-
-    return null;  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+    return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
 }
 // ToDo: refactor all the insertOne functions here
 
@@ -137,10 +146,10 @@ app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
 
-    //if (!accountData.firstName) { console.log("Missing first name")}  // this is now handled in checkCustomerData()
+    //if (!accountData.firstName) { console.log("Missing first name")}  // this is now handled in checkAccountData()
 
     // check if main fields exist
-    err = checkCustomerData(accountData)
+    err = checkAccountData(accountData)
     if (err) {
         respondError(res, err)
         return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
