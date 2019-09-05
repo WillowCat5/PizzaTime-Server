@@ -4,7 +4,7 @@
     "required": [ "accountId", "username", "password" ],
     "additionalProperties": false,
     "properties": {
-        "accountId": { "type": "integer", "maxLength": 12 },
+        "accountId": { "type": "integer" },
         "username": { "type": "string", "minLength": 3, "maxLength": 20, "pattern": "^[\\w\\.,']*$" },
         "password": { "type": "string", "minLength": 8, "maxLength": 20, "pattern": "^\\w([\\w!@#$%]*)$" },
         "contacts": {

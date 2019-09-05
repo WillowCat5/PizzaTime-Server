@@ -58,14 +58,27 @@ mongoClient.connect(err => {
     })
 
     // import schema(s)
-    readJson('./custAccountsSchema2.json', (err, obj) => {
+    readJson('ajv/lib/refs/json-schema-secure.json', (err, securityJson) => {
         if (err) {
-            console.log("Unable to import file with error: ", err)
-            exit  // quit server, which may already have started before cb called here
-            // *** is there a "better" way to quit?  need to close db and express first?
+            console.log("Unable to import security schema, err: ", err)
+            exit
         }
-        custAccountsValidator = ajv.compile(obj);
+        let securitySchemaValidator = ajv.compile(securityJson)
+        readJson('./custAccountsSchema2.json', (err, custJson) => {
+            if (err) {
+                console.log("Unable to import custAccountsSchema2 with error: ", err)
+                exit  // quit server, which may already have started before cb called here
+                // *** is there a "better" way to quit?  need to close db and express first?
+            }
+            
+            custAccountsValidator = ajv.compile(custJson);
+            if (!securitySchemaValidator(custJson)) {
+                console.log("=== custAccountsSchema2 failed security check ===")
+                // don't exit program, just complain and continue
+            }
+        })
     })
+    
 
     console.log("Server starting on 8088")
     // Start Express
