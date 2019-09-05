@@ -1,12 +1,51 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Customer Accounts schema",
+    "examples": [
+        {
+            "accountId": 123,
+            "username": "some_User1",
+            "password": "superSecret$9",
+            "contacts": [
+                {
+                    "firstName": "Ms. Foobar",
+                    "lastName": "O'Neil, the 3rd",
+                    "phone": "(555) 555-5555"
+                },
+                { }
+            ],
+            "addresses": [
+                { },
+                { }
+            ],
+            "paymentMethods": [
+                { },
+                { }
+            ]
+        }
+    ],
     "type": "object",
     "required": [ "accountId", "username", "password" ],
     "additionalProperties": false,
     "properties": {
-        "accountId": { "type": "integer" },
-        "username": { "type": "string", "minLength": 3, "maxLength": 20, "pattern": "^[\\w\\.,']*$" },
-        "password": { "type": "string", "minLength": 8, "maxLength": 20, "pattern": "^\\w([\\w!@#$%]*)$" },
+        "accountId": {
+            "type": "integer",
+            "description": "accountId must be an integer"
+        },
+        "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 20,
+            "pattern": "^\\w([\\w!@#$%]*)$",
+            "description": "Username must be 3-20 characters long, contain no spaces, and contain only alphanumeric characters or these symbols:  !@#$%"
+        },
+        "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 20,
+            "pattern": "^\\w([\\w!@#$%]*)$",
+            "description": "Password must be 8-20 characters long, contain no spaces, and contain only alphanumeric characters or these symbols:  !@#$%"
+        },
         "contacts": {
             "type": "array",
             "minItems": 1,
@@ -17,10 +56,30 @@
                 "required": [ "firstName", "lastName", "phone" ],
                 "additionalProperties": false,
                 "properties": {
-                    "firstName": { "type": "string", "maxLength": 30, "pattern": "^[\\w \\.,']*$" },
-                    "lastName": { "type": "string", "maxLength": 30, "pattern": "^[\\w \\.,']*$" },
-                    "phone": { "type": "string", "maxLength": 15, "pattern": "1?\\W*([2-9][0-8][0-9])\\W*([2-9][0-9]{2})\\W*([0-9]{4})(\\se?x?t?(\\d*))?" },
-                    "email": { "type": "string", "maxLength": 50, "format": "email" }
+                    "firstName": {
+                        "type": "string",
+                        "maxLength": 30,
+                        "pattern": "^[\\w \\.,']*$",
+                        "description": "First name must be no more than 30 characters, may contain spaces, and can only contain alphanumerics or these symbols:  ,.'"
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "maxLength": 30,
+                        "pattern": "^[\\w \\.,']*$",
+                        "description": "Last name must be no more than 30 characters, may contain spaces, and can only contain alphanumerics or these symbols:  ,.'"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "maxLength": 15,
+                        "pattern": "1?\\W*([2-9][0-8][0-9])\\W*([2-9][0-9]{2})\\W*([0-9]{4})(\\se?x?t?(\\d*))?",
+                        "description": "Phone number must look like a North American number and include the area code"
+                    },
+                    "email": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "format": "email",
+                        "description": "E-mail address must look valid, like x@y.com"
+                    }
                 }
             }
         },
@@ -34,11 +93,36 @@
                 "required": [ "street1", "city", "state", "zip" ],
                 "additionalProperties": false,
                 "properties": {
-                    "street1": { "type": "string", "maxLength": 50, "pattern": "(\\w \\.,')*" },
-                    "street2": { "type": "string", "maxLength": 50, "pattern": "(\\w \\.,')*" },
-                    "city": { "type": "string", "maxLength": 50, "pattern": "(\\w \\.')*" },
-                    "state": { "type": "string", "maxLength": 15, "pattern": "(\\w \\.)*" },
-                    "zip": { "type": "string", "maxLength": 15, "pattern": "^(?!00000)(?<zip>(?<zip5>\\d{5})(?:[ -](?=\\d))?(?<zip4>\\d{4})?)$" }
+                    "street1": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "pattern": "(\\w \\.,')*",
+                        "description": "Street address must be no more than 50 characters and contain alphanumerics or these symbols:  .,'"
+                    },
+                    "street2": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "pattern": "(\\w \\.,')*",
+                        "description": "Street address (line 2) must be no more than 50 characters and contain alphanumerics or these symbols:  .,'"
+                    },
+                    "city": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "pattern": "(\\w \\.')*",
+                        "description": "City must be no more than 50 characters, must start with an alphanumeric, and otherwise contain only alphanumerics or these symbols: .'"
+                    },
+                    "state": {
+                        "type": "string",
+                        "maxLength": 20,
+                        "pattern": "(\\w \\.)*",
+                        "description": "State  must be no more than 20 characters, must start with an alphanumeric, and otherwise contain only alphanumerics or these symbols: .'"
+                    },
+                    "zip": {
+                        "type": "string",
+                        "maxLength": 15,
+                        "pattern": "^(?!00000)(?<zip>(?<zip5>\\d{5})(?:[ -](?=\\d))?(?<zip4>\\d{4})?)$",
+                        "description": "Zip code must look like a U.S. code, like 55555 or 55555-4444"
+                    }
                 }
             }
         },
