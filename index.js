@@ -135,6 +135,8 @@ function checkAccountData(accountData) {  // returns an error (string), or null 
 
     // *** check if certain fields make sense (like e-mail pattern)
 
+    // *** password field should be changed for a hash or something, instead of the direct password it currently expects
+
     return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
 }
 // ToDo: refactor all the insertOne functions here

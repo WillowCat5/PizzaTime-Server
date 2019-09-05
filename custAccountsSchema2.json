@@ -4,9 +4,9 @@
     "required": [ "accountId", "username", "password" ],
     "additionalProperties": false,
     "properties": {
-        "accountId": { "type": "integer", "maxLength": 20 },
-        "username": { "type": "string", "minLength": 3, "maxLength": 20 },
-        "password": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "accountId": { "type": "integer", "maxLength": 12 },
+        "username": { "type": "string", "minLength": 3, "maxLength": 20, "pattern": "^[\\w\\.,']*$" },
+        "password": { "type": "string", "minLength": 8, "maxLength": 20, "pattern": "^\\w([\\w!@#$%]*)$" },
         "contacts": {
             "type": "array",
             "minItems": 1,
@@ -15,11 +15,12 @@
             "items": {
                 "type": "object",
                 "required": [ "firstName", "lastName", "phone" ],
+                "additionalProperties": false,
                 "properties": {
-                    "firstName": { "type": "string", "maxLength": 30 },
-                    "lastName": { "type": "string", "maxLength": 30 },
+                    "firstName": { "type": "string", "maxLength": 30, "pattern": "^[\\w \\.,']*$" },
+                    "lastName": { "type": "string", "maxLength": 30, "pattern": "^[\\w \\.,']*$" },
                     "phone": { "type": "string", "maxLength": 15, "pattern": "1?\\W*([2-9][0-8][0-9])\\W*([2-9][0-9]{2})\\W*([0-9]{4})(\\se?x?t?(\\d*))?" },
-                    "email": { "type": "string", "maxLength": 50 }
+                    "email": { "type": "string", "maxLength": 50, "format": "email" }
                 }
             }
         },
@@ -31,12 +32,13 @@
             "items": {
                 "type": "object",
                 "required": [ "street1", "city", "state", "zip" ],
+                "additionalProperties": false,
                 "properties": {
-                    "street1": { "type": "string", "maxLength": 50 },
-                    "street2": { "type": "string", "maxLength": 50 },
-                    "city": { "type": "string", "maxLength": 50 },
-                    "state": { "type": "string", "maxLength": 15 },
-                    "zip": { "type": "string", "maxLength": 15 }
+                    "street1": { "type": "string", "maxLength": 50, "pattern": "(\\w \\.,')*" },
+                    "street2": { "type": "string", "maxLength": 50, "pattern": "(\\w \\.,')*" },
+                    "city": { "type": "string", "maxLength": 50, "pattern": "(\\w \\.')*" },
+                    "state": { "type": "string", "maxLength": 15, "pattern": "(\\w \\.)*" },
+                    "zip": { "type": "string", "maxLength": 15, "pattern": "^(?!00000)(?<zip>(?<zip5>\\d{5})(?:[ -](?=\\d))?(?<zip4>\\d{4})?)$" }
                 }
             }
         },
@@ -48,6 +50,7 @@
             "items": {
                 "type": "object",
                 "required": [],
+                "additionalProperties": false,
                 "properties": {
 
                 }
