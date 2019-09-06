@@ -13,6 +13,7 @@ app.use((req, res, next) => {
 const fs = require('fs')  // for JSON import
 //const valid = require('validator')  // tried this library but decided to go for something more sophisticated
 const Ajv = require('ajv')  // Another JSON (Schema) Validator, https://www.npmjs.com/package/ajv
+const _ = require('lodash')  // for flattening the schema to make error messages easier to get to
 let ajv = new Ajv( { allErrors: true } )  // ***** TODO: remove allErrors for production release, which fixes DoS issue
 
 // Express routes are below the main runloop
@@ -26,6 +27,7 @@ const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
+let custAccountsSchema
 let custAccountsValidator
 
 // Use Assert for error checking
@@ -58,24 +60,25 @@ mongoClient.connect(err => {
     })
 
     // import schema(s)
-    readJson('ajv/lib/refs/json-schema-secure.json', (err, securityJson) => {
+    readJson('ajv/lib/refs/json-schema-secure.json', (err, securitySchema) => {
         if (err) {
             console.log("Unable to import security schema, err: ", err)
             exit
         }
-        let securitySchemaValidator = ajv.compile(securityJson)
-        readJson('./custAccountsSchema2.json', (err, custJson) => {
+        let securitySchemaValidator = ajv.compile(securitySchema)
+        readJson('./custAccountsSchema2.json', (err, custSchema) => {
             if (err) {
                 console.log("Unable to import custAccountsSchema2 with error: ", err)
                 exit  // quit server, which may already have started before cb called here
                 // *** is there a "better" way to quit?  need to close db and express first?
             }
             
-            custAccountsValidator = ajv.compile(custJson);
-            if (!securitySchemaValidator(custJson)) {
+            custAccountsValidator = ajv.compile(custSchema);
+            if (!securitySchemaValidator(custSchema)) {
                 console.log("=== custAccountsSchema2 failed security check ===")
                 // don't exit program, just complain and continue
             }
+            custAccountsSchema = custSchema  // save the schema also, for later use
         })
     })
     
@@ -121,38 +124,40 @@ function updateObject(coll,key,value,obj,cb) {
     })
 }
 
-function checkAccountData(accountData) {  // returns an error (string), or null if no issue
+function checkAccountData(accountData) {  // returns an error (string or array obj), or null if no issue
     if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
     if (typeof accountData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
     if (accountData.accountId)  return 'accountId should NOT exist on received data'
     accountData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
 
     if (!custAccountsValidator(accountData)) {
-        console.log("=====")
-        console.log(custAccountsValidator.errors)
-        return custAccountsValidator.errors
+        let returnMsg
+        custAccountsValidator.errors.forEach(errObj => {  // loop for multiple errors
+            let errorPath = errObj.dataPath
+            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
+            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
+            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
+            let errorMsg = _.get(custAccountsSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
+            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
+            console.log(errorMsg)
+        })
+        return returnMsg || custAccountsValidator.errors  // return whole error object if we couldn't construct an error message
     }
 
-    // Object.keys(custAccountsSchema).forEach(key => {  // generically compare the top level elements in schema to input data
-    //     console.log(key, " | ", accountData[key], ' | ', typeof accountData[key], ' | ', accountData[key].toString())  //  *** just for checking
-    //     if (!accountData[key])  return `${key} doesn't exist in input data`
-    //     if (accountData[key].toString.length > MAX_KEY_SIZE)  return `${key} is too long.  Maximum size is ${MAX_KEY_SIZE}`
-    // })
-    // if (!accountData.contacts.contacts1)  return 'no contact included'
-    // // if (!accountData.addresses.address1)  return 'no address included'  // *** address may be optional, especially for pickup-only orders
-    // if (!accountData.paymentMethods.payment1)  return 'no payment method included'
-    
     // (done?) check if any fields are super long
     
-    // *** check if any fields contain non-printing characters, using regex/pattern?  maybe combined with next thought:
+    // (done?) check if any fields contain non-printing characters, using regex/pattern?  maybe combined with next thought:
 
-    // *** check if certain fields make sense (like e-mail pattern)
+    // (done?) check if certain fields make sense (like e-mail pattern)
+    // *** phone number regex may need to be changed;  it allowed "/"...
+    // *** invalid json, like missing a " in phone field, crashed instead of gracefully handled
 
     // *** password field should be changed for a hash or something, instead of the direct password it currently expects
 
     return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
 }
 // ToDo: refactor all the insertOne functions here
+
 
 ////////////////// API and DB calls ///////////////////////////
 
