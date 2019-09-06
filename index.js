@@ -10,7 +10,11 @@ app.use((req, res, next) => {
     res.append('Access-Control-Allow-Headers', 'Content-Type');
     next();
 });
-const fs = require('fs')  // for json import
+const fs = require('fs')  // for JSON import
+//const valid = require('validator')  // tried this library but decided to go for something more sophisticated
+const Ajv = require('ajv')  // Another JSON (Schema) Validator, https://www.npmjs.com/package/ajv
+const _ = require('lodash')  // for flattening the schema to make error messages easier to get to
+let ajv = new Ajv( { allErrors: true } )  // ***** TODO: remove allErrors for production release, which fixes DoS issue
 
 // Express routes are below the main runloop
 
@@ -24,6 +28,7 @@ const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
 let custAccountsSchema
+let custAccountsValidator
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -46,7 +51,7 @@ mongoClient.connect(err => {
 
     // Convenience tool: get a handle to all of the collections
     const collList = ['Accounts','Orders','Products','Pages']
-    collList.some( function(element) {
+    collList.some( function(element) {  // *** forEach might be more efficient as it doesn't return anything
         // Store the handles in the "collections" object, making it easier to access them
         collection[element] = mongoDB.collection(element)
         // If we didn't do this, we'd possibly have to type the following
@@ -55,14 +60,28 @@ mongoClient.connect(err => {
     })
 
     // import schema(s)
-    readJson('./custAccountsSchema.json', (err, obj) => {
+    readJson('ajv/lib/refs/json-schema-secure.json', (err, securitySchema) => {
         if (err) {
-            console.log("Unable to import file with error: ", err)
-            exit  // quit server, which may already have started before cb called here
+            console.log("Unable to import security schema, err: ", err)
+            exit
         }
-        custAccountsSchema = obj;
-        //console.log(custAccountsSchema)
+        let securitySchemaValidator = ajv.compile(securitySchema)
+        readJson('./custAccountsSchema2.json', (err, custSchema) => {
+            if (err) {
+                console.log("Unable to import custAccountsSchema2 with error: ", err)
+                exit  // quit server, which may already have started before cb called here
+                // *** is there a "better" way to quit?  need to close db and express first?
+            }
+            
+            custAccountsValidator = ajv.compile(custSchema);
+            if (!securitySchemaValidator(custSchema)) {
+                console.log("=== custAccountsSchema2 failed security check ===")
+                // don't exit program, just complain and continue
+            }
+            custAccountsSchema = custSchema  // save the schema also, for later use
+        })
     })
+    
 
     console.log("Server starting on 8088")
     // Start Express
@@ -104,7 +123,41 @@ function updateObject(coll,key,value,obj,cb) {
         cb({ origObj: obj, modifiedCount: result.modifiedCount})
     })
 }
+
+function checkAccountData(accountData) {  // returns an error (string or array obj), or null if no issue
+    if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
+    if (typeof accountData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
+    if (accountData.accountId)  return 'accountId should NOT exist on received data'
+    accountData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
+
+    if (!custAccountsValidator(accountData)) {
+        let returnMsg
+        custAccountsValidator.errors.forEach(errObj => {  // loop for multiple errors
+            let errorPath = errObj.dataPath
+            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
+            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
+            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
+            let errorMsg = _.get(custAccountsSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
+            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
+            console.log(errorMsg)
+        })
+        return returnMsg || custAccountsValidator.errors  // return whole error object if we couldn't construct an error message
+    }
+
+    // (done?) check if any fields are super long
+    
+    // (done?) check if any fields contain non-printing characters, using regex/pattern?  maybe combined with next thought:
+
+    // (done?) check if certain fields make sense (like e-mail pattern)
+    // *** phone number regex may need to be changed;  it allowed "/"...
+    // *** invalid json, like missing a " in phone field, crashed instead of gracefully handled
+
+    // *** password field should be changed for a hash or something, instead of the direct password it currently expects
+
+    return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+}
 // ToDo: refactor all the insertOne functions here
+
 
 ////////////////// API and DB calls ///////////////////////////
 
@@ -112,47 +165,20 @@ function updateObject(coll,key,value,obj,cb) {
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
     // Todo: sanitize the data and do security checks here.
-    if (!accountData.firstName) { console.log("Missing first name")}
-    // *** do we stop with first violation, or check them all?
+
+    //if (!accountData.firstName) { console.log("Missing first name")}  // this is now handled in checkAccountData()
 
     // check if main fields exist
-    if (accountData.accountId) {
-        respondError(res, 'accountId should NOT exist on received data')
-        return  // be sure to return after sending a response, or we get an error about reusing res
+    err = checkAccountData(accountData)
+    if (err) {
+        respondError(res, err)
+        return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
     }
-    accountData.accountId = 123;  // *** placeholder.  need to generate a new *unique* one
-    Object.keys(custAccountsSchema).forEach(key => {
-        console.log(key, " | ", accountData[key])  //  *** just for checking
-        if(!accountData[key])  {
-            respondError(res, `${key} doesn't exist`)
-            return
-        }
-    })
-    if (!accountData.contacts.contacts1) {  // *** magic way to not hardcode "contacts1"?
-        respondError(res, 'no contact included')
-        return
-    }
-    if (!accountData.addresses.address1) {
-        respondError(res, 'no address included')
-        return
-    }
-    if (!accountData.paymentMethods.payment1) {
-        respondError(res, 'no payment methods included')
-        return
-    }
-
-    // check if unexpected keys are present, and strip them off?  (may cause issues if schema changes later)
-
-    // check if any fields are super long or contain non-printing characters
-
-    // check if certain fields make sense (like e-mail pattern)
-
-
 
 
     registerObject("Accounts",accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
-    // IOW, put some error-checking/handling code here
+    // IOW, put some error-checking/handling code here, *** for if the database rejected the call
 })
 
 app.post('/account/change/:accountNum', (req, res) => {
