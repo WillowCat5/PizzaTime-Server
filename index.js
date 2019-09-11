@@ -121,13 +121,13 @@ function updateObject(coll,key,value,obj,cb) {
     })
 }
 
-function checkAccountData(accountData) {  // returns an error (string or array obj), or null if no issue
+function checkAccountData(inputData) {  // returns an error (string or array), or null if no issue
     if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
-    if (typeof accountData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
-    if (accountData.accountId)  return 'accountId should NOT exist on received data'
-    accountData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
+    if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
+    if (inputData.accountId)  return 'accountId should NOT exist on received data' 
+    inputData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
 
-    if (!custAccountsValidator(accountData)) {
+    if (!custAccountsValidator(inputData)) {
         let returnMsg
         custAccountsValidator.errors.forEach(errObj => {  // loop for multiple errors
             let errorPath = errObj.dataPath
@@ -141,18 +141,42 @@ function checkAccountData(accountData) {  // returns an error (string or array o
         return returnMsg || custAccountsValidator.errors  // return whole error object if we couldn't construct an error message
     }
 
-    // (done?) check if any fields are super long
-    
-    // (done?) check if any fields contain non-printing characters, using regex/pattern?  maybe combined with next thought:
-
-    // (done?) check if certain fields make sense (like e-mail pattern)
     // *** phone number regex may need to be changed;  it allowed "/"...
-    // *** invalid json, like missing a " in phone field, crashed instead of gracefully handled
-
-    // *** password field should be changed for a hash or something, instead of the direct password it currently expects
+    // *** invalid json, like missing a " in phone field, barfs instead of gracefully handled
+    // *** password field should be changed for a hash or something, instead of the direct password the regex currently expects
 
     return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
 }
+
+function checkOrderData(inputData) {  // returns an error (string or array obj), or null if no issue
+    if (!orderValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
+    if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
+    //if (inputData.accountId)  return 'accountId should NOT exist on received data'
+    //inputData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
+
+    if (!orderValidator(inputData)) {
+        let returnMsg
+        console.log(orderValidator.errors)
+        orderValidator.errors.forEach(errObj => {  // loop for multiple errors
+            let errorPath = errObj.dataPath
+            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
+            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
+            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
+            let errorMsg = _.get(orderSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
+            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
+            console.log(errorMsg)
+        })
+        return returnMsg || orderValidator.errors  // return whole error object if we couldn't construct an error message
+    }
+
+    // *** phone number regex may need to be changed;  it allowed "/"...
+    // *** invalid json, like missing a " in phone field, barfs instead of gracefully handled
+    // *** password field should be changed for a hash or something, instead of the direct password the regex currently expects
+    // *** certain types of errors don't have a path and a descrption field, like if a required object is missing;  use .message instead?
+
+    return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+}
+
 // ToDo: refactor all the insertOne functions here
 
 
@@ -161,17 +185,12 @@ function checkAccountData(accountData) {  // returns an error (string or array o
 /////-----      customer
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
-    // Todo: sanitize the data and do security checks here.
 
-    //if (!accountData.firstName) { console.log("Missing first name")}  // this is now handled in checkAccountData()
-
-    // check if main fields exist
     err = checkAccountData(accountData)
     if (err) {
         respondError(res, err)
         return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
     }
-
 
     registerObject("Accounts",accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
@@ -242,7 +261,13 @@ app.get('/product/detail/:productNum', (req, res) => {
 /////-----      orders
 app.post('/order/newitem', (req, res) => {
     let orderData = req.body
-    // Todo: sanitize the data and do security checks here.
+
+    err = checkOrderData(orderData)
+    if (err) {
+        respondError(res, err)
+        return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
+    }
+
     registerObject("Orders",orderData,(obj) => respondOK(res,obj))
 })
 
