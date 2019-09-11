@@ -27,8 +27,8 @@ const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
-let custAccountsSchema
-let custAccountsValidator
+let custAccountsSchema, orderSchema
+let custAccountsValidator, orderValidator
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -66,19 +66,35 @@ mongoClient.connect(err => {
             exit
         }
         let securitySchemaValidator = ajv.compile(securitySchema)
-        readJson('./custAccountsSchema2.json', (err, custSchema) => {
+
+        readJson('./custAccountsSchema2.json', (err, schemaObj) => {
             if (err) {
-                console.log("Unable to import custAccountsSchema2 with error: ", err)
+                console.log(`Unable to import ${schemaObj} with error: ${err}`)
                 exit  // quit server, which may already have started before cb called here
                 // *** is there a "better" way to quit?  need to close db and express first?
             }
             
-            custAccountsValidator = ajv.compile(custSchema);
-            if (!securitySchemaValidator(custSchema)) {
+            custAccountsValidator = ajv.compile(schemaObj);
+            if (!securitySchemaValidator(schemaObj)) {
                 console.log("=== custAccountsSchema2 failed security check ===")
                 // don't exit program, just complain and continue
             }
-            custAccountsSchema = custSchema  // save the schema also, for later use
+            custAccountsSchema = schemaObj  // save the schema also, for later use
+        })
+
+        readJson('./orderSchema.json', (err, schemaObj) => {
+            if (err) {
+                console.log(`Unable to import ${schemaObj} with error: ${err}`)
+                exit  // quit server, which may already have started before cb called here
+                // *** is there a "better" way to quit?  need to close db and express first?
+            }
+            
+            orderValidator = ajv.compile(schemaObj);
+            if (!securitySchemaValidator(schemaObj)) {
+                console.log("=== custAccountsSchema2 failed security check ===")
+                // don't exit program, just complain and continue
+            }
+            orderSchema = schemaObj  // save the schema also, for later use
         })
     })
     
