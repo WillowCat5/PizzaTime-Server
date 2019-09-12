@@ -27,8 +27,8 @@ const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
-let custAccountsSchema, orderSchema
-let custAccountsValidator, orderValidator
+let custAccountsSchema, orderSchema, productSchema
+let custAccountsValidator, orderValidator, productValidator
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -83,6 +83,12 @@ mongoClient.connect(err => {
             if (!securitySchemaValidator(schemaObj))  console.log("=== orderSchema failed security check ===")
             orderValidator = ajv.compile(schemaObj);
             orderSchema = schemaObj  // save the schema also, for later use
+        })
+
+        readJson('./productSchema.json', (schemaObj) => {
+            if (!securitySchemaValidator(schemaObj))  console.log("=== productSchema failed security check ===")
+            productValidator = ajv.compile(schemaObj);
+            productSchema = schemaObj  // save the schema also, for later use
         })
     })
     
@@ -158,8 +164,6 @@ function checkAccountData(inputData) {  // returns an error (string or array), o
 function checkOrderData(inputData) {  // returns an error (string or array obj), or null if no issue
     if (!orderValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
     if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
-    //if (inputData.accountId)  return 'accountId should NOT exist on received data'
-    //inputData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
 
     if (!orderValidator(inputData)) {
         let returnMsg
@@ -177,11 +181,33 @@ function checkOrderData(inputData) {  // returns an error (string or array obj),
     }
 
     // *** phone number regex may need to be changed;  it allowed "/"...
-    // *** invalid json, like missing a " in phone field, barfs instead of gracefully handled
+    // (done) invalid json, like missing a " in phone field, barfs instead of gracefully handled
     // *** password field should be changed for a hash or something, instead of the direct password the regex currently expects
     // *** certain types of errors don't have a path and a descrption field, like if a required object is missing;  use .message instead?
 
     return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+}
+
+function checkProductData(inputData) {  // returns an error (string or array obj), or null if no issue
+    if (!productValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
+    if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
+
+    if (!productValidator(inputData)) {
+        let returnMsg
+        console.log(productValidator.errors)
+        productValidator.errors.forEach(errObj => {  // loop for multiple errors
+            let errorPath = errObj.dataPath
+            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
+            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
+            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
+            let errorMsg = _.get(orderSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
+            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
+            console.log(errorMsg)
+        })
+        return returnMsg || productValidator.errors  // return whole error object if we couldn't construct an error message
+    }
+
+    return null
 }
 
 // ToDo: refactor all the insertOne functions here
@@ -238,8 +264,7 @@ function searchUser(searchParam,cb) {
 /////-----      products
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
-    let newitemNum = Math.floor(Math.random() * 10000) + 10000;
-    productData.productNum = newitemNum
+    productData.productId = Math.floor(Math.random() * 10000) + 10000;
 
     if (!productData.productName) {
         respondError(res,"Invalid Product Name")
@@ -249,20 +274,20 @@ app.post('/product/newitem', (req, res) => {
         respondError(res,"Product Size Undefined")
     }
 
-    // Todo: sanitize the data and do security checks here.
+    checkProductData(productData)
     registerObject("Products",productData,(obj) => respondOK(res,obj))
 })
 
-app.post('/product/change/:productNum', (req, res) => {
+app.post('/product/change/:productId', (req, res) => {
     let productData = req.body
-    let num = parseInt(req.params.productNum)
+    let num = parseInt(req.params.productId)
     // Todo: sanitize the data and do security checks here.
-    updateObject("Products","productNum",num,productData,(obj) => respondOK(res,obj))
+    updateObject("Products","productId",num,productData,(obj) => respondOK(res,obj))
 })
 
-app.get('/product/detail/:productNum', (req, res) => {
-    let num = parseInt(req.params.productNum)
-    retrieveOne("Products", "productNum",num,(obj) => respondOK(res,obj))
+app.get('/product/detail/:productId', (req, res) => {
+    let num = parseInt(req.params.productId)
+    retrieveOne("Products", "productId",num,(obj) => respondOK(res,obj))
 })
 
 /////-----      orders

@@ -1,0 +1,72 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Individual Order schema",
+    "examples": [
+        {
+            "productId": 789,
+            "orderType": "pizza",
+            "itemName": "Hawaiian",
+            "size": "Large",
+            "quantity": 1,
+            "pricePerItem": 12
+        },
+        {
+            "productId": 345,
+            "orderType": "drink",
+            "itemName": "Coke",
+            "size": "Small",
+            "quantity": 1,
+            "pricePerItem": 1.5
+        },
+        {
+            "productId": 567,
+            "orderType": "coupons",
+            "itemName": "July2019Promo",
+            "quantity": 1,
+            "pricePerItem": -3.0
+        },
+        {
+            "productId": 678,
+            "orderType": "fees",
+            "itemName": "Delivery Charge",
+            "quantity": 1,
+            "pricePerItem": 2.0
+        }
+    ],
+    "type": "object",
+    "required": [ "productId", "orderType", "itemName", "quantity", "pricePerItem"],
+    "additionalProperties": false,
+    "properties": {
+        "productId": {
+            "type": "integer"
+        },
+        "orderType": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "(\\w \\.,')*",
+            "description": "Order type must be no more than 50 characters and contain alphanumerics or these symbols:  .,'"
+        },
+        "itemName": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "(\\w \\.,')*",
+            "description": "Item's name must be no more than 50 characters and contain alphanumerics or these symbols:  .,'"
+        },
+        "size": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "(\\w \\.,')*",
+            "description": "Item's size must be no more than 20 characters and contain alphanumerics or these symbols:  .,'"
+        },
+        "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+        },
+        "pricePerItem": {
+            "type": "number",
+            "minimum": -1000,
+            "maximum": 1000
+        }
+    }
+}
