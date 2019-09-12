@@ -34,7 +34,8 @@
     "additionalProperties": false,
     "properties": {
         "productId": {
-            "type": "integer"
+            "type": "integer",
+            "description": "productId must be an integer"
         },
         "orderType": {
             "type": "string",
@@ -54,10 +55,11 @@
             "pattern": "(\\w \\.,')*",
             "description": "Item's size must be no more than 20 characters and contain alphanumerics or these symbols:  .,'"
         },
-        "pricePerItem": {
+        "price": {
             "type": "number",
             "minimum": -1000,
-            "maximum": 1000
+            "maximum": 1000,
+            "description": "price must be a number between -1000 and +1000"
         }
     }
 }
