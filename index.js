@@ -274,7 +274,11 @@ app.post('/product/newitem', (req, res) => {
         respondError(res,"Product Size Undefined")
     }
 
-    checkProductData(productData)
+    err = checkProductData(productData)
+    if (err) {
+        respondError(res, err)
+        return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
+    }
     registerObject("Products",productData,(obj) => respondOK(res,obj))
 })
 
