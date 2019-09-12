@@ -36,11 +36,18 @@ const assert = require('assert')
 // async json import, see here: https://goenning.net/2016/04/14/stop-reading-json-files-with-require/
 function readJson(path, cb) {
     fs.readFile(require.resolve(path), (err, data) => {
-        if (err)  {  // may not even need this because it looks like node will just barf with a good error, if there's a problem
-            console.log(`Unable to import ${path}, err: ${err}`)
-            exit
+        if (err)  {  // may not even need this because it looks like node will just barf with a useful error, if there's a problem
+            console.log('=== Unable to import file ', path)
+            console.log(err)
+            process.exit(-1)
         }
-        cb(JSON.parse(data))
+        try{
+            cb(JSON.parse(data))
+        } catch(err2) {
+            console.log('=== JSON-parse error with file ', path)
+            console.log(err2)
+            process.exit(-1)
+        }
     })
 }
 
