@@ -21,6 +21,7 @@
             },
             "orderItems": [
                 {
+                    "productId": 789,
                     "orderType": "pizza",
                     "itemName": "Hawaiian",
                     "size": "Large",
@@ -28,6 +29,7 @@
                     "pricePerItem": 12
                 },
                 {
+                    "productId": 345,
                     "orderType": "drink",
                     "itemName": "Coke",
                     "size": "Small",
@@ -35,18 +37,21 @@
                     "pricePerItem": 1.5
                 },
                 {
+                    "productId": 654,
                     "orderType": "sides",
                     "itemName": "Breadsticks",
                     "quantity": 1,
                     "pricePerItem": 5.99
                 },
                 {
+                    "productId": 567,
                     "orderType": "coupons",
                     "itemName": "July2019Promo",
                     "quantity": 1,
                     "pricePerItem": -3.0
                 },
                 {
+                    "productId": 678,
                     "orderType": "fees",
                     "itemName": "Delivery Charge",
                     "quantity": 1,
@@ -146,9 +151,12 @@
             "uniqueItems": true,
             "items": {
                 "type": "object",
-                "required": [ "orderType", "itemName", "quantity", "pricePerItem"],
+                "required": [ "productId", "orderType", "itemName", "quantity", "pricePerItem"],
                 "additionalProperties": false,
                 "properties": {
+                    "productId": {
+                        "type": "integer"
+                    },
                     "orderType": {
                         "type": "string",
                         "maxLength": 50,
