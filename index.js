@@ -137,8 +137,6 @@ function updateObject(coll,key,value,obj,cb) {
 function checkAccountData(inputData) {  // returns an error (string or array), or null if no issue
     if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
     if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
-    if (inputData.accountId)  return 'accountId should NOT exist on received data' 
-    inputData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
 
     if (!custAccountsValidator(inputData)) {
         let returnMsg
@@ -218,6 +216,12 @@ function checkProductData(inputData) {  // returns an error (string or array obj
 /////-----      customer
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
+    if (accountData.accountId)  {
+        respondError(res, 'accountId should NOT exist on received data')
+        return
+    }
+    accountData.accountId = Math.floor(Math.random() * 10000) + 10000;
+    // *** verify Id doesn't already exist in database?
 
     err = checkAccountData(accountData)
     if (err) {
@@ -264,15 +268,12 @@ function searchUser(searchParam,cb) {
 /////-----      products
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
+    if (productData.productId)  {
+        respondError(res, 'productId should NOT exist on received data')
+        return
+    }
     productData.productId = Math.floor(Math.random() * 10000) + 10000;
-
-    // if (!productData.productName) {
-    //     respondError(res,"Invalid Product Name")
-    // }
-
-    // if (!productData.productSize) {
-    //     respondError(res,"Product Size Undefined")
-    // }
+    // *** verify Id doesn't already exist in database?
 
     err = checkProductData(productData)
     if (err) {
@@ -297,6 +298,12 @@ app.get('/product/detail/:productId', (req, res) => {
 /////-----      orders
 app.post('/order/newitem', (req, res) => {
     let orderData = req.body
+    if (orderData.orderId)  {
+        respondError(res, 'orderId should NOT exist on received data')
+        return
+    }
+    orderData.orderId = Math.floor(Math.random() * 999999900) + 100;  // *** do we want these random or sequential?  checking for already existing Ids might get expensive
+    // *** verify Id doesn't already exist in database?
 
     err = checkOrderData(orderData)
     if (err) {
