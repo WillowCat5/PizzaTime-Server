@@ -266,13 +266,13 @@ app.post('/product/newitem', (req, res) => {
     let productData = req.body
     productData.productId = Math.floor(Math.random() * 10000) + 10000;
 
-    if (!productData.productName) {
-        respondError(res,"Invalid Product Name")
-    }
+    // if (!productData.productName) {
+    //     respondError(res,"Invalid Product Name")
+    // }
 
-    if (!productData.productSize) {
-        respondError(res,"Product Size Undefined")
-    }
+    // if (!productData.productSize) {
+    //     respondError(res,"Product Size Undefined")
+    // }
 
     err = checkProductData(productData)
     if (err) {
