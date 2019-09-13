@@ -134,79 +134,40 @@ function updateObject(coll,key,value,obj,cb) {
     })
 }
 
-function checkAccountData(inputData) {  // returns an error (string or array), or null if no issue
-    if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
-    if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
-
-    if (!custAccountsValidator(inputData)) {
-        let returnMsg
-        custAccountsValidator.errors.forEach(errObj => {  // loop for multiple errors
-            let errorPath = errObj.dataPath
-            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
-            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
-            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
-            let errorMsg = _.get(custAccountsSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
-            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
-            console.log(errorMsg)
-        })
-        return returnMsg || custAccountsValidator.errors  // return whole error object if we couldn't construct an error message
-    }
-
-    // *** phone number regex may need to be changed;  it allowed "/"...
-    // *** invalid json, like missing a " in phone field, barfs instead of gracefully handled
-    // *** password field should be changed for a hash or something, instead of the direct password the regex currently expects
-
-    return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+function getErrorStrings(errArray, schema) {
+    let returnMsg
+    errArray.forEach(errObj => {  // loop for multiple errors
+        let errorPath = errObj.dataPath
+        errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
+        errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
+        errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
+        let schemaPath = _.get(schema.properties, errorPath)  // use lodash to get the potentially nested errorPath property
+        if (schemaPath && schemaPath.description)  // make sure our error description is pointing to a valid message property
+            returnMsg =  (!returnMsg) ?  schemaPath.description  :  returnMsg + '\n' + schemaPath.description
+        else
+            if (errObj.message) 
+                returnMsg =  (!returnMsg) ?  errObj.message  :  returnMsg + '\n' + errObj.message
+            else
+                returnMsg =  (!returnMsg) ?  errObj  :  returnMsg + '\n' + errObj
+    })
+    return returnMsg
 }
 
-function checkOrderData(inputData) {  // returns an error (string or array obj), or null if no issue
-    if (!orderValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
+function checkGenericData(inputData, validatorFunc, schema) {  // returns an error (string or array obj), or null if no issue
+    if (!validatorFunc)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
     if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
 
-    if (!orderValidator(inputData)) {
-        let returnMsg
-        console.log(orderValidator.errors)
-        orderValidator.errors.forEach(errObj => {  // loop for multiple errors
-            let errorPath = errObj.dataPath
-            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
-            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
-            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
-            let errorMsg = _.get(orderSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
-            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
-            console.log(errorMsg)
-        })
-        return returnMsg || orderValidator.errors  // return whole error object if we couldn't construct an error message
-    }
-
-    // *** phone number regex may need to be changed;  it allowed "/"...
-    // (done) invalid json, like missing a " in phone field, barfs instead of gracefully handled
-    // *** password field should be changed for a hash or something, instead of the direct password the regex currently expects
-    // *** certain types of errors don't have a path and a descrption field, like if a required object is missing;  use .message instead?
-
-    return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
-}
-
-function checkProductData(inputData) {  // returns an error (string or array obj), or null if no issue
-    if (!productValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
-    if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
-
-    if (!productValidator(inputData)) {
-        let returnMsg
-        console.log(productValidator.errors)
-        productValidator.errors.forEach(errObj => {  // loop for multiple errors
-            let errorPath = errObj.dataPath
-            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
-            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
-            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
-            let errorMsg = _.get(orderSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
-            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
-            console.log(errorMsg)
-        })
-        return returnMsg || productValidator.errors  // return whole error object if we couldn't construct an error message
+    if (!validatorFunc(inputData)) {
+        let returnMsg = getErrorStrings(validatorFunc.errors, schema)
+        console.log(returnMsg)
+        return returnMsg || validatorFunc.errors  // return whole error object if we couldn't construct an error message
     }
 
     return null
 }
+
+// *** phone number regex may need to be changed for custAccounts and orders;  it allowed "/"...
+
 
 // ToDo: refactor all the insertOne functions here
 
@@ -223,7 +184,7 @@ app.post('/account/newuser', (req, res) => {
     accountData.accountId = Math.floor(Math.random() * 10000) + 10000;
     // *** verify Id doesn't already exist in database?
 
-    err = checkAccountData(accountData)
+    err = checkGenericData(accountData, custAccountsValidator, custAccountsSchema)
     if (err) {
         respondError(res, err)
         return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
@@ -275,7 +236,7 @@ app.post('/product/newitem', (req, res) => {
     productData.productId = Math.floor(Math.random() * 10000) + 10000;
     // *** verify Id doesn't already exist in database?
 
-    err = checkProductData(productData)
+    err = checkGenericData(productData, productValidator, productSchema)
     if (err) {
         respondError(res, err)
         return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
@@ -305,7 +266,7 @@ app.post('/order/newitem', (req, res) => {
     orderData.orderId = Math.floor(Math.random() * 999999900) + 100;  // *** do we want these random or sequential?  checking for already existing Ids might get expensive
     // *** verify Id doesn't already exist in database?
 
-    err = checkOrderData(orderData)
+    err = checkGenericData(orderData, orderValidator, orderSchema)
     if (err) {
         respondError(res, err)
         return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object

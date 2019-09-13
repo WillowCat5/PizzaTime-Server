@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Individual Order schema",
+    "title": "Product schema",
     "examples": [
         {
             "productId": 789,
@@ -30,7 +30,7 @@
         }
     ],
     "type": "object",
-    "required": [ "productId", "orderType", "itemName", "pricePerItem"],
+    "required": [ "productId", "orderType", "itemName", "price" ],
     "additionalProperties": false,
     "properties": {
         "productId": {
@@ -40,20 +40,20 @@
         "orderType": {
             "type": "string",
             "maxLength": 50,
-            "pattern": "(\\w \\.,')*",
-            "description": "Order type must be no more than 50 characters and contain alphanumerics or these symbols:  .,'"
+            "pattern": "^[\\w \\.,']*$",
+            "description": "Order type must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
         },
         "itemName": {
             "type": "string",
             "maxLength": 50,
-            "pattern": "(\\w \\.,')*",
-            "description": "Item's name must be no more than 50 characters and contain alphanumerics or these symbols:  .,'"
+            "pattern": "^[\\w \\.,']*$",
+            "description": "Item's name must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
         },
         "size": {
             "type": "string",
             "maxLength": 20,
-            "pattern": "(\\w \\.,')*",
-            "description": "Item's size must be no more than 20 characters and contain alphanumerics or these symbols:  .,'"
+            "pattern": "^[\\w \\.,']*$",
+            "description": "Item's size must be no more than 20 characters and contain alphanumerics or these symbols:  _.,'"
         },
         "price": {
             "type": "number",
