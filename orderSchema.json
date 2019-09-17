@@ -1,0 +1,194 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Individual Order schema",
+    "examples": [
+        {
+            "orderId": 234,
+            "accountId": 123,
+            "paymentTransactionId": 456,
+            "contact": {
+                "firstName": "Ms. Foobar",
+                "lastName": "O'Neil, the 3rd",
+                "phone": "(555) 555-5555"
+            },
+            "address": {
+                "street1": "",
+                "street2": "",
+                "city": "",
+                "state": "UT",
+                "zip": "55555-4444"
+            },
+            "orderItems": [
+                {
+                    "productId": 789,
+                    "orderType": "pizza",
+                    "itemName": "Hawaiian",
+                    "size": "Large",
+                    "quantity": 1,
+                    "pricePerItem": 12
+                },
+                {
+                    "productId": 345,
+                    "orderType": "drink",
+                    "itemName": "Coke",
+                    "size": "Small",
+                    "quantity": 1,
+                    "pricePerItem": 1.5
+                },
+                {
+                    "productId": 654,
+                    "orderType": "sides",
+                    "itemName": "Breadsticks",
+                    "quantity": 1,
+                    "pricePerItem": 5.99
+                },
+                {
+                    "productId": 567,
+                    "orderType": "coupons",
+                    "itemName": "July2019Promo",
+                    "quantity": 1,
+                    "pricePerItem": -3.0
+                },
+                {
+                    "productId": 678,
+                    "orderType": "fees",
+                    "itemName": "Delivery Charge",
+                    "quantity": 1,
+                    "pricePerItem": 2.0
+                }
+            ]
+        }
+    ],
+    "type": "object",
+    "required": [ "orderId", "accountId", "paymentTransactionId", "contact", "orderItems"],
+    "additionalProperties": false,
+    "properties": {
+        "orderId": {
+            "type": "integer",
+            "description": "orderId must be an integer"
+        },
+        "accountId": {
+            "type": "integer",
+            "description": "accountId must be an integer"
+        },
+        "paymentTransactionId": {
+            "type": "integer",
+            "description": "paymentTransactionId must be an integer"
+        },
+        "contact": {
+            "type": "object",
+            "required": [ "firstName", "lastName", "phone" ],
+            "additionalProperties": false,
+            "properties": {
+                "firstName": {
+                    "type": "string",
+                    "maxLength": 30,
+                    "pattern": "^[\\w \\.,']*$",
+                    "description": "First name must be no more than 30 characters, may contain spaces, and can only contain alphanumerics or these symbols:  _,.'"
+                },
+                "lastName": {
+                    "type": "string",
+                    "maxLength": 30,
+                    "pattern": "^[\\w \\.,']*$",
+                    "description": "Last name must be no more than 30 characters, may contain spaces, and can only contain alphanumerics or these symbols:  _,.'"
+                },
+                "phone": {
+                    "type": "string",
+                    "maxLength": 15,
+                    "pattern": "1?\\W*([2-9][0-8][0-9])\\W*([2-9][0-9]{2})\\W*([0-9]{4})(\\se?x?t?(\\d*))?",
+                    "description": "Phone number must look like a North American number and include the area code"
+                },
+                "email": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "format": "email",
+                    "description": "E-mail address must look valid, like x@y.com"
+                }
+            }
+        },
+        "address": {
+            "type": "object",
+            "required": [ "street1", "city", "state", "zip" ],
+            "additionalProperties": false,
+            "properties": {
+                "street1": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "pattern": "^[\\w \\.,']*$",
+                    "description": "Street address must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
+                },
+                "street2": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "pattern": "^[\\w \\.,']*$",
+                    "description": "Street address (line 2) must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
+                },
+                "city": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "pattern": "^[\\w \\.,']*$",
+                    "description": "City must be no more than 50 characters, must start with an alphanumeric, and otherwise contain only alphanumerics or these symbols: _.'"
+                },
+                "state": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "pattern": "^[\\w \\.']*$",
+                    "description": "State  must be no more than 20 characters, must start with an alphanumeric, and otherwise contain only alphanumerics or these symbols: _.'"
+                },
+                "zip": {
+                    "type": "string",
+                    "maxLength": 15,
+                    "pattern": "^(?!00000)(?<zip>(?<zip5>\\d{5})(?:[ -](?=\\d))?(?<zip4>\\d{4})?)$",
+                    "description": "Zip code must look like a U.S. code, like 55555 or 55555-4444"
+                }
+            }
+        },
+        "orderItems": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+                "type": "object",
+                "required": [ "productId", "orderType", "itemName", "quantity", "pricePerItem"],
+                "additionalProperties": false,
+                "properties": {
+                    "productId": {
+                        "type": "integer",
+                        "description": "productId must be an integer"
+                    },
+                    "orderType": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "pattern": "^[\\w \\.,']*$",
+                        "description": "Order type must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
+                    },
+                    "itemName": {
+                        "type": "string",
+                        "maxLength": 50,
+                        "pattern": "^[\\w \\.,']*$",
+                        "description": "Item's name must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
+                    },
+                    "size": {
+                        "type": "string",
+                        "maxLength": 20,
+                        "pattern": "^[\\w \\.,']*$",
+                        "description": "Item's size must be no more than 20 characters and contain alphanumerics or these symbols:  _.,'"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000,
+                        "description": "quantity must be an integer from 1 to 1000"
+                    },
+                    "pricePerItem": {
+                        "type": "number",
+                        "minimum": -1000,
+                        "maximum": 1000,
+                        "description": "pricePerItem must be a number between -1000 and +1000"
+                    }
+                }
+            }
+        }
+    }
+}

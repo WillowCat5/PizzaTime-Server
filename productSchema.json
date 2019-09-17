@@ -1,0 +1,65 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Product schema",
+    "examples": [
+        {
+            "productId": 789,
+            "orderType": "pizza",
+            "itemName": "Hawaiian",
+            "size": "Large",
+            "pricePerItem": 12
+        },
+        {
+            "productId": 345,
+            "orderType": "drink",
+            "itemName": "Coke",
+            "size": "Small",
+            "pricePerItem": 1.5
+        },
+        {
+            "productId": 567,
+            "orderType": "coupons",
+            "itemName": "July2019Promo",
+            "pricePerItem": -3.0
+        },
+        {
+            "productId": 678,
+            "orderType": "fees",
+            "itemName": "Delivery Charge",
+            "pricePerItem": 2.0
+        }
+    ],
+    "type": "object",
+    "required": [ "productId", "orderType", "itemName", "price" ],
+    "additionalProperties": false,
+    "properties": {
+        "productId": {
+            "type": "integer",
+            "description": "productId must be an integer"
+        },
+        "orderType": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "^[\\w \\.,']*$",
+            "description": "Order type must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
+        },
+        "itemName": {
+            "type": "string",
+            "maxLength": 50,
+            "pattern": "^[\\w \\.,']*$",
+            "description": "Item's name must be no more than 50 characters and contain alphanumerics or these symbols:  _.,'"
+        },
+        "size": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "^[\\w \\.,']*$",
+            "description": "Item's size must be no more than 20 characters and contain alphanumerics or these symbols:  _.,'"
+        },
+        "price": {
+            "type": "number",
+            "minimum": -1000,
+            "maximum": 1000,
+            "description": "price must be a number between -1000 and +1000"
+        }
+    }
+}

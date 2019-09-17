@@ -27,8 +27,8 @@ const mongoClient = new MongoClient(dbLink, { useNewUrlParser: true } )
 const mongoDBName = 'PizzaTime'
 let mongoDB
 let collection = {}
-let custAccountsSchema
-let custAccountsValidator
+let custAccountsSchema, orderSchema, productSchema
+let custAccountsValidator, orderValidator, productValidator
 
 // Use Assert for error checking
 const assert = require('assert')
@@ -36,8 +36,18 @@ const assert = require('assert')
 // async json import, see here: https://goenning.net/2016/04/14/stop-reading-json-files-with-require/
 function readJson(path, cb) {
     fs.readFile(require.resolve(path), (err, data) => {
-        if (err)  cb(err)
-        else  cb(null, JSON.parse(data))
+        if (err)  {  // may not even need this because it looks like node will just barf with a useful error, if there's a problem
+            console.log('=== Unable to import file ', path)
+            console.log(err)
+            process.exit(-1)
+        }
+        try{
+            cb(JSON.parse(data))
+        } catch(err2) {
+            console.log('=== JSON-parse error with file ', path)
+            console.log(err2)
+            process.exit(-1)
+        }
     })
 }
 
@@ -60,25 +70,25 @@ mongoClient.connect(err => {
     })
 
     // import schema(s)
-    readJson('ajv/lib/refs/json-schema-secure.json', (err, securitySchema) => {
-        if (err) {
-            console.log("Unable to import security schema, err: ", err)
-            exit
-        }
-        let securitySchemaValidator = ajv.compile(securitySchema)
-        readJson('./custAccountsSchema2.json', (err, custSchema) => {
-            if (err) {
-                console.log("Unable to import custAccountsSchema2 with error: ", err)
-                exit  // quit server, which may already have started before cb called here
-                // *** is there a "better" way to quit?  need to close db and express first?
-            }
-            
-            custAccountsValidator = ajv.compile(custSchema);
-            if (!securitySchemaValidator(custSchema)) {
-                console.log("=== custAccountsSchema2 failed security check ===")
-                // don't exit program, just complain and continue
-            }
-            custAccountsSchema = custSchema  // save the schema also, for later use
+    readJson('ajv/lib/refs/json-schema-secure.json', (schemaObj) => {
+        let securitySchemaValidator = ajv.compile(schemaObj)  // securitySchemaValidator is only needed during schema imports, not globally forever
+
+        readJson('./custAccountsSchema2.json', (schemaObj) => {
+            if (!securitySchemaValidator(schemaObj))  console.log("=== custAccountsSchema2 failed security check ===")
+            custAccountsValidator = ajv.compile(schemaObj);
+            custAccountsSchema = schemaObj  // save the schema also, for later use
+        })
+
+        readJson('./orderSchema.json', (schemaObj) => {
+            if (!securitySchemaValidator(schemaObj))  console.log("=== orderSchema failed security check ===")
+            orderValidator = ajv.compile(schemaObj);
+            orderSchema = schemaObj  // save the schema also, for later use
+        })
+
+        readJson('./productSchema.json', (schemaObj) => {
+            if (!securitySchemaValidator(schemaObj))  console.log("=== productSchema failed security check ===")
+            productValidator = ajv.compile(schemaObj);
+            productSchema = schemaObj  // save the schema also, for later use
         })
     })
     
@@ -124,38 +134,41 @@ function updateObject(coll,key,value,obj,cb) {
     })
 }
 
-function checkAccountData(accountData) {  // returns an error (string or array obj), or null if no issue
-    if (!custAccountsValidator)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
-    if (typeof accountData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
-    if (accountData.accountId)  return 'accountId should NOT exist on received data'
-    accountData.accountId = 123  // placeholder value so next block doesn't complain;  *** need to generate a new *unique* id later
+function getErrorStrings(errArray, schema) {
+    let returnMsg
+    errArray.forEach(errObj => {  // loop for multiple errors
+        let errorPath = errObj.dataPath
+        errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
+        errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
+        errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
+        let schemaPath = _.get(schema.properties, errorPath)  // use lodash to get the potentially nested errorPath property
+        if (schemaPath && schemaPath.description)  // make sure our error description is pointing to a valid message property
+            returnMsg =  (!returnMsg) ?  schemaPath.description  :  returnMsg + '\n' + schemaPath.description
+        else
+            if (errObj.message) 
+                returnMsg =  (!returnMsg) ?  errObj.message  :  returnMsg + '\n' + errObj.message
+            else
+                returnMsg =  (!returnMsg) ?  errObj  :  returnMsg + '\n' + errObj
+    })
+    return returnMsg
+}
 
-    if (!custAccountsValidator(accountData)) {
-        let returnMsg
-        custAccountsValidator.errors.forEach(errObj => {  // loop for multiple errors
-            let errorPath = errObj.dataPath
-            errorPath = errorPath.substr(1, errorPath.length)  // strip beginning "." off
-            errorPath = errorPath.replace(".", ".properties.")  // replace nested items with expanded path in schema
-            errorPath = errorPath.replace(/\[\d+\]/, ".items")  // replace array-indexing [0] with .items
-            let errorMsg = _.get(custAccountsSchema.properties, errorPath).description  // use lodash to get the potentially nested errorPath property
-            returnMsg = returnMsg + errorMsg + '\n'  // *** could be fancy and only include carriage return if multiple errors
-            console.log(errorMsg)
-        })
-        return returnMsg || custAccountsValidator.errors  // return whole error object if we couldn't construct an error message
+function checkGenericData(inputData, validatorFunc, schema) {  // returns an error (string or array obj), or null if no issue
+    if (!validatorFunc)  return 'server isn\'t ready, try again in a moment'  // schema may not be done being async loaded when a call happens to come in;  *** pause, auto-retry instead of failing?
+    if (typeof inputData != 'object')  return 'unexpected data'  // *** should something like this be persistently logged somewhere?  may be a sign of a hacking attempt
+
+    if (!validatorFunc(inputData)) {
+        let returnMsg = getErrorStrings(validatorFunc.errors, schema)
+        console.log(returnMsg)
+        return returnMsg || validatorFunc.errors  // return whole error object if we couldn't construct an error message
     }
 
-    // (done?) check if any fields are super long
-    
-    // (done?) check if any fields contain non-printing characters, using regex/pattern?  maybe combined with next thought:
-
-    // (done?) check if certain fields make sense (like e-mail pattern)
-    // *** phone number regex may need to be changed;  it allowed "/"...
-    // *** invalid json, like missing a " in phone field, crashed instead of gracefully handled
-
-    // *** password field should be changed for a hash or something, instead of the direct password it currently expects
-
-    return null  // no error;  *** do we need to state null, or is it implied with a blank return?  doesn't hurt...
+    return null
 }
+
+// *** phone number regex may need to be changed for custAccounts and orders;  it allowed "/"...
+
+
 // ToDo: refactor all the insertOne functions here
 
 
@@ -164,17 +177,18 @@ function checkAccountData(accountData) {  // returns an error (string or array o
 /////-----      customer
 app.post('/account/newuser', (req, res) => {
     let accountData = req.body
-    // Todo: sanitize the data and do security checks here.
+    if (accountData.accountId)  {
+        respondError(res, 'accountId should NOT exist on received data')
+        return
+    }
+    accountData.accountId = Math.floor(Math.random() * 10000) + 10000;
+    // *** verify Id doesn't already exist in database?
 
-    //if (!accountData.firstName) { console.log("Missing first name")}  // this is now handled in checkAccountData()
-
-    // check if main fields exist
-    err = checkAccountData(accountData)
+    err = checkGenericData(accountData, custAccountsValidator, custAccountsSchema)
     if (err) {
         respondError(res, err)
         return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
     }
-
 
     registerObject("Accounts",accountData,(returnedData) => respondOK(res,returnedData))
     // Normally, if there was an error, we wouldn't respondOK...
@@ -215,37 +229,49 @@ function searchUser(searchParam,cb) {
 /////-----      products
 app.post('/product/newitem', (req, res) => {
     let productData = req.body
-    let newitemNum = Math.floor(Math.random() * 10000) + 10000;
-    productData.productNum = newitemNum
-
-    if (!productData.productName) {
-        respondError(res,"Invalid Product Name")
+    if (productData.productId)  {
+        respondError(res, 'productId should NOT exist on received data')
+        return
     }
+    productData.productId = Math.floor(Math.random() * 10000) + 10000;
+    // *** verify Id doesn't already exist in database?
 
-    if (!productData.productSize) {
-        respondError(res,"Product Size Undefined")
+    err = checkGenericData(productData, productValidator, productSchema)
+    if (err) {
+        respondError(res, err)
+        return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
     }
-
-    // Todo: sanitize the data and do security checks here.
     registerObject("Products",productData,(obj) => respondOK(res,obj))
 })
 
-app.post('/product/change/:productNum', (req, res) => {
+app.post('/product/change/:productId', (req, res) => {
     let productData = req.body
-    let num = parseInt(req.params.productNum)
+    let num = parseInt(req.params.productId)
     // Todo: sanitize the data and do security checks here.
-    updateObject("Products","productNum",num,productData,(obj) => respondOK(res,obj))
+    updateObject("Products","productId",num,productData,(obj) => respondOK(res,obj))
 })
 
-app.get('/product/detail/:productNum', (req, res) => {
-    let num = parseInt(req.params.productNum)
-    retrieveOne("Products", "productNum",num,(obj) => respondOK(res,obj))
+app.get('/product/detail/:productId', (req, res) => {
+    let num = parseInt(req.params.productId)
+    retrieveOne("Products", "productId",num,(obj) => respondOK(res,obj))
 })
 
 /////-----      orders
 app.post('/order/newitem', (req, res) => {
     let orderData = req.body
-    // Todo: sanitize the data and do security checks here.
+    if (orderData.orderId)  {
+        respondError(res, 'orderId should NOT exist on received data')
+        return
+    }
+    orderData.orderId = Math.floor(Math.random() * 999999900) + 100;  // *** do we want these random or sequential?  checking for already existing Ids might get expensive
+    // *** verify Id doesn't already exist in database?
+
+    err = checkGenericData(orderData, orderValidator, orderSchema)
+    if (err) {
+        respondError(res, err)
+        return  // be sure to return after sending a response, or we get an error about reusing res;  plus we don't want to register an invalid object
+    }
+
     registerObject("Orders",orderData,(obj) => respondOK(res,obj))
 })
 
