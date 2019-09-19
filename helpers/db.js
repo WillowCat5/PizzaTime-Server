@@ -1,10 +1,10 @@
 const config = require('../config.json')
 const MongoClient = require('mongodb').MongoClient
 
-var connection = function () {
+function connection() {
 
-    var db = null;
-    var collection = {}
+    let db = null;
+    let collection = {}
 
     const collList = ['Accounts','Orders','Pages','Products']
 
@@ -31,7 +31,6 @@ var connection = function () {
                 db = await connect()
                 return collection;
             }
-
         } catch (err) {
             return err
         }
@@ -39,24 +38,44 @@ var connection = function () {
 
     async function get() {
         try {
-
             if (db != null) {
                 return db;
             } else {
                 db = await connect()
                 return db
             }
-
         } catch (err) {
             return err
         }
     }
+    
+    function retrieveOne(coll,key,value,cb) {
+        collection[coll].findOne({[key]: value}).then(cb)
+    }
+
+    function registerObject(coll,obj,cb) {
+        console.log("Inserting into " + coll + ": ", obj);
+        collection[coll].insertOne(obj).then((result) => {
+            cb({ops: result.ops, insertedId: result.insertedId, insertedCount: result.insertedCount})
+        })
+    }
+
+    function updateObject(coll,key,value,obj,cb) {
+        collection[coll].updateOne({ [key]: value }, { $set: obj }).then((result) => {
+            cb({ origObj: obj, modifiedCount: result.modifiedCount})
+        })
+    }
+
 
     return { 
         get: get,
-        collections: getCollections
+        collections: getCollections,
+        retrieveOne,
+        registerObject,
+        updateObject
     }
-    
 }
+// connection()  // is this even used externally?  Maybe just an iife
+
 
 module.exports = connection();
