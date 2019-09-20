@@ -48,34 +48,13 @@ function connection() {
             return err
         }
     }
-    
-    function retrieveOne(coll,key,value,cb) {
-        collection[coll].findOne({[key]: value}).then(cb)
-    }
-
-    function registerObject(coll,obj,cb) {
-        console.log("Inserting into " + coll + ": ", obj);
-        collection[coll].insertOne(obj).then((result) => {
-            cb({ops: result.ops, insertedId: result.insertedId, insertedCount: result.insertedCount})
-        })
-    }
-
-    function updateObject(coll,key,value,obj,cb) {
-        collection[coll].updateOne({ [key]: value }, { $set: obj }).then((result) => {
-            cb({ origObj: obj, modifiedCount: result.modifiedCount})
-        })
-    }
-
 
     return { 
         get: get,
-        collections: getCollections,
-        retrieveOne,
-        registerObject,
-        updateObject
+        collections: getCollections
     }
 }
-// connection()  // is this even used externally?  Maybe just an iife
+// connection()  // *** is this even used externally?  Maybe just an iife
 
 
 module.exports = connection();
