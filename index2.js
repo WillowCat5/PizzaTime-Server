@@ -3,7 +3,6 @@ const app = express()
 
 const bodyParser = require('body-parser')
 const cors = require('cors')
-//var fs = require('fs')
 //var path = require('path')
 
 var http = require('http').Server(app)
@@ -15,7 +14,7 @@ app.use(bodyParser.json())
 app.use(cors())
 //app.use(jwt())
 
-//app.use('/acct', require('./accounts/accounts.controller'))
+app.use('/acct', require('./accounts/accounts.controller'))
 //app.use('/ord', require('./orders/orders.controller'))
 app.use('/prod', require('./products/products.controller'))
 //app.use('/pg', require('./pages/pages.controller'))
